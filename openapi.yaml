@@ -1,0 +1,283 @@
+openapi: 3.0.3
+info:
+  title: Gateway Service API
+  version: 1.2.0
+  description: API for registering gateways, assigning them, querying lots, and sending gateway events.
+servers:
+  - url: https://lffysn2zevjah4sys5ypkxdacy0uwfgh.lambda-url.us-east-2.on.aws
+paths:
+  /gateway/register:
+    post:
+      summary: Register a new gateway
+      security:
+        - RegisterAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                gateway_id: { type: string }
+                hardware_version: { type: string }
+                firmware_version: { type: string }
+                sim_imsi: { type: string }
+              required: [gateway_id]
+      responses:
+        '200':
+          description: Gateway registered
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /gateway/assign:
+    post:
+      summary: Assign a gateway to a lot/section
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                gateway_id: { type: string }
+                lot_id: { type: integer }
+                section_id: { type: string }
+              required: [gateway_id, lot_id, section_id]
+      responses:
+        '200':
+          description: Assignment result
+
+  /lots:
+    get:
+      summary: List lots with sections
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Optional search filter
+      responses:
+        '200':
+          description: List of lots
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object }
+
+  # ----------------------------
+  # "Independent" event endpoints
+  # ----------------------------
+
+  /gateway/{gateway_id}/events/update-status:
+    post:
+      summary: Update gateway status
+      description: Send an `update_status` event with status payload.
+      security:
+        - GatewayAuth: []
+      parameters:
+        - $ref: '#/components/parameters/gateway_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              event_type: update_status
+              payload:
+                status: active
+              timestamp: "2025-01-15T10:00:00Z"
+      responses:
+        '200':
+          $ref: '#/components/responses/EventAccepted'
+
+  /gateway/{gateway_id}/events/let-me-in:
+    post:
+      summary: Let a unit/vehicle in
+      description: Shortcut for `cmd_let_me_in` event.
+      security:
+        - GatewayAuth: []
+      parameters:
+        - $ref: '#/components/parameters/gateway_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              event_type: cmd_let_me_in
+              payload: {}
+              timestamp: "2025-01-15T10:00:00Z"
+      responses:
+        '200':
+          $ref: '#/components/responses/EventAccepted'
+
+  /gateway/{gateway_id}/events/admin-arm-down:
+    post:
+      summary: Arm down
+      description: Send an `cmd_admin_arm_down` event.
+      security:
+        - GatewayAuth: []
+      parameters:
+        - $ref: '#/components/parameters/gateway_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              event_type: cmd_admin_arm_down
+              payload: {}
+              timestamp: "2025-01-15T10:00:00Z"
+      responses:
+        '200':
+          $ref: '#/components/responses/EventAccepted'
+
+  /gateway/{gateway_id}/events/admin-arm-up:
+    post:
+      summary: Arm up
+      description: Send an `cmd_admin_arm_up` event.
+      security:
+        - GatewayAuth: []
+      parameters:
+        - $ref: '#/components/parameters/gateway_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              event_type: cmd_admin_arm_up
+              payload: {}
+              timestamp: "2025-01-15T10:00:00Z"
+      responses:
+        '200':
+          $ref: '#/components/responses/EventAccepted'
+
+  /gateway/{gateway_id}/events/report-all:
+    post:
+      summary: Report all state
+      description: Request a full state report with `cmd_report_all`.
+      security:
+        - GatewayAuth: []
+      parameters:
+        - $ref: '#/components/parameters/gateway_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              event_type: cmd_report_all
+              payload: {}
+              timestamp: "2025-01-15T10:00:00Z"
+      responses:
+        '200':
+          $ref: '#/components/responses/EventAccepted'
+
+  /gateway/{gateway_id}/events/ota-update:
+    post:
+      summary: Trigger OTA firmware update
+      description: Send `cmd_ota_update` with a firmware download URL.
+      security:
+        - GatewayAuth: []
+      parameters:
+        - $ref: '#/components/parameters/gateway_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              event_type: cmd_ota_update
+              payload:
+                url: "https://example.com/firmware/v1.2.3.bin"
+              timestamp: "2025-01-15T10:00:00Z"
+      responses:
+        '200':
+          $ref: '#/components/responses/EventAccepted'
+
+  /gateway/{gateway_id}/events/unit-removal/address:
+    post:
+      summary: Remove unit by address
+      security:
+        - GatewayAuth: []
+      parameters:
+        - $ref: '#/components/parameters/gateway_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              event_type: cmd_unit_removal
+              payload:
+                unit_address: "1234"
+              timestamp: "2025-01-15T10:00:00Z"
+      responses:
+        '200':
+          $ref: '#/components/responses/EventAccepted'
+
+  /gateway/{gateway_id}/events/unit-removal/mac:
+    post:
+      summary: Remove unit by MAC
+      security:
+        - GatewayAuth: []
+      parameters:
+        - $ref: '#/components/parameters/gateway_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              event_type: cmd_unit_removal
+              payload:
+                unit_mac: "00:11:22:33:44:55"
+              timestamp: "2025-01-15T10:00:00Z"
+      responses:
+        '200':
+          $ref: '#/components/responses/EventAccepted'
+
+  /gateway/{gateway_id}/events/unit-removal/all:
+    post:
+      summary: Remove all units
+      security:
+        - GatewayAuth: []
+      parameters:
+        - $ref: '#/components/parameters/gateway_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              event_type: cmd_unit_removal
+              payload: {}
+              timestamp: "2025-01-15T10:00:00Z"
+      responses:
+        '200':
+          $ref: '#/components/responses/EventAccepted'
+
+components:
+  parameters:
+    gateway_id:
+      name: gateway_id
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    EventAccepted:
+      description: Event accepted
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message: { type: string }
+              event: { type: object }
+
+  securitySchemes:
+    RegisterAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Use REGISTER_TOKEN from env
+    GatewayAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Per-gateway token from GATEWAY_TOKEN
