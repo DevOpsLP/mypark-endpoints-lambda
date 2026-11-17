@@ -19,8 +19,12 @@ function signBody(secret, body) {
  * @returns {Promise<{ok: boolean, status: number, data: any}>}
  */
 async function forwardToGateway({ gateway_id, event_type, payload, timestamp, gateway_url }) {
-  const baseUrl = gateway_url || process.env.GATEWAY_URL;
+  const baseUrl = process.env.GATEWAY_URL;
   if (!baseUrl) throw new Error("GATEWAY_URL env var is required");
+  const target = new URL(baseUrl);
+  if (target.protocol !== "https:" || target.username || target.password || target.search || target.hash) {
+    throw new Error("GATEWAY_URL must be an HTTPS URL without credentials, query, or fragment");
+  }
 
   const url = `${baseUrl.replace(/\/+$/, "")}/${encodeURIComponent(gateway_id)}/events`;
 
@@ -42,6 +46,7 @@ async function forwardToGateway({ gateway_id, event_type, payload, timestamp, ga
   try {
     const res = await fetch(url, {
       method: "POST",
+      redirect: "error",
       headers,
       body: bodyStr,
       signal: ac.signal,
