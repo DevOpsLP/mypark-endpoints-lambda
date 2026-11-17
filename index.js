@@ -6,7 +6,7 @@ const { verifyRegisterAuth, verifyGatewayAuth } = require("./utils/auth");
 const fs = require("fs");
 const pathLib = require("path");
 
-exports.handler = async (event) => {
+const handleRequest = async (event) => {
   try {
     const body = event.body ? JSON.parse(event.body) : {};
     const path = event.rawPath || event.path || "/";
@@ -73,12 +73,14 @@ exports.handler = async (event) => {
 
     // Assign
     if (path === "/gateway/assign" && method === "POST") {
+      await verifyRegisterAuth(token);
       const result = await assignGateway(body);
       return { statusCode: 200, body: JSON.stringify(result) };
     }
 
     // Lookup
     if (path === "/lots" && method === "GET") {
+      await verifyRegisterAuth(token);
       const q = (event.queryStringParameters || {}).q || null;
       const result = await listLotsWithSections(q);
       return { statusCode: 200, body: JSON.stringify(result) };
@@ -95,7 +97,22 @@ exports.handler = async (event) => {
     return { statusCode: 404, body: JSON.stringify({ message: "Not Found", path, method }) };
   } catch (err) {
     console.error("Handler error:", err);
-    const code = /token|auth/i.test(err.message) ? 401 : 500;
-    return { statusCode: code, body: JSON.stringify({ error: err.message }) };
+    const code = err instanceof SyntaxError ? 400 : /token|auth/i.test(err.message) ? 401 : 500;
+    return { statusCode: code, body: JSON.stringify({ error: code === 400 ? "Invalid JSON" : code === 401 ? "Unauthorized" : "Internal Server Error" }) };
   }
+};
+
+exports.handler = async (event) => {
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const allowed = (process.env.ALLOWED_ORIGINS || "").split(",").map(x => x.trim()).filter(x => x && x !== "*");
+  if (origin && !allowed.includes(origin)) {
+    return { statusCode: 403, body: JSON.stringify({ error: "Origin not allowed" }) };
+  }
+  const headers = origin ? { "Access-Control-Allow-Origin": origin, "Vary": "Origin" } : {};
+  const method = event.requestContext?.http?.method || event.httpMethod;
+  if (method === "OPTIONS") {
+    return { statusCode: 204, headers: { ...headers, "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Authorization, Content-Type" }, body: "" };
+  }
+  const response = await handleRequest(event);
+  return { ...response, headers: { ...response.headers, ...headers } };
 };

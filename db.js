@@ -23,7 +23,7 @@ async function getDbPool() {
     password: creds.password,
     database: creds.dbname,
     port: creds.port || 5432,
-    ssl: { rejectUnauthorized: false },
+    ssl: { rejectUnauthorized: true, ...(process.env.DB_CA_CERT ? { ca: process.env.DB_CA_CERT } : {}) },
   });
 
   return pool;

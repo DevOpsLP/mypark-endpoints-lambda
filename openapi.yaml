@@ -34,6 +34,8 @@ paths:
   /gateway/assign:
     post:
       summary: Assign a gateway to a lot/section
+      security:
+        - RegisterAuth: []
       requestBody:
         required: true
         content:
@@ -52,6 +54,8 @@ paths:
   /lots:
     get:
       summary: List lots with sections
+      security:
+        - RegisterAuth: []
       parameters:
         - name: q
           in: query
